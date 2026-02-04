@@ -18,6 +18,10 @@ x-airflow-common: &airflow-common
     DB_USER: ${POSTGRES_USER}
     DB_PASSWORD: ${POSTGRES_PASSWORD}
 
+    # API Configuration
+    COINGECKO_API_URL: ${COINGECKO_API_URL}
+    CRYPTO_ASSETS: ${CRYPTO_ASSETS}
+
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs

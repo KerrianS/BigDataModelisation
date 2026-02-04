@@ -1,0 +1,18 @@
+{
+  "name": "PostgreSQL",
+  "type": "postgres",
+  "uid": "PostgreSQL",
+  "url": "postgres:5432",
+  "access": "proxy",
+  "isDefault": true,
+  "database": "airflow",
+  "user": "airflow",
+  "jsonData": {
+    "sslmode": "disable",
+    "postgresVersion": 1300,
+    "timescaledb": false
+  },
+  "secureJsonData": {
+    "password": "airflow"
+  }
+}

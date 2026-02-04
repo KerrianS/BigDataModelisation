@@ -1,0 +1,175 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "crypto_dashboard",
+    "title": "Crypto BIG DATA Dashboard",
+    "tags": ["airflow", "crypto", "bigdata"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Market Dominance (Top 5)",
+        "type": "piechart",
+        "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+        "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT name, market_cap_usd FROM crypto_prices WHERE ingestion_timestamp = (SELECT MAX(ingestion_timestamp) FROM crypto_prices) ORDER BY market_cap_usd DESC LIMIT 5",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Top Gainers (24h)",
+        "type": "bargauge",
+        "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+        "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT name, change_percent_24h FROM crypto_prices WHERE ingestion_timestamp = (SELECT MAX(ingestion_timestamp) FROM crypto_prices) ORDER BY change_percent_24h DESC LIMIT 5",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": 0 }
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Top Losers (24h)",
+        "type": "bargauge",
+        "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+        "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT name, change_percent_24h FROM crypto_prices WHERE ingestion_timestamp = (SELECT MAX(ingestion_timestamp) FROM crypto_prices) ORDER BY change_percent_24h ASC LIMIT 5",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": -100 },
+                { "color": "green", "value": 0 }
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Market Overview (Top 100)",
+        "type": "table",
+        "datasource": { "type": "postgres", "uid": "PostgreSQL" },
+        "gridPos": { "x": 0, "y": 8, "w": 24, "h": 16 },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT rank, name, symbol, price_usd, high_24h, low_24h, ath, ath_change_percentage, market_cap_usd, volume_24h_usd, change_percent_24h FROM crypto_prices WHERE ingestion_timestamp = (SELECT MAX(ingestion_timestamp) FROM crypto_prices) ORDER BY rank ASC",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "change_percent_24h" },
+              "properties": [
+                {
+                  "id": "custom.displayMode",
+                  "value": "color-text"
+                },
+                {
+                   "id": "thresholds",
+                   "value": {
+                     "mode": "absolute",
+                     "steps": [
+                       { "color": "red", "value": -100 },
+                       { "color": "green", "value": 0 }
+                     ]
+                   }
+                },
+                {
+                    "id": "unit",
+                    "value": "percent"
+                }
+              ]
+            },
+            {
+                "matcher": { "id": "byName", "options": "ath_change_percentage" },
+                "properties": [
+                  {
+                      "id": "unit",
+                      "value": "percent"
+                  },
+                  {
+                    "id": "custom.displayMode",
+                    "value": "basic"
+                  }
+                ]
+            },
+            {
+              "matcher": { "id": "byName", "options": "price_usd" },
+              "properties": [ { "id": "unit", "value": "currencyUSD" } ]
+            },
+            {
+                "matcher": { "id": "byName", "options": "high_24h" },
+                "properties": [ { "id": "unit", "value": "currencyUSD" } ]
+            },
+            {
+                "matcher": { "id": "byName", "options": "low_24h" },
+                "properties": [ { "id": "unit", "value": "currencyUSD" } ]
+            },
+            {
+                "matcher": { "id": "byName", "options": "ath" },
+                "properties": [ { "id": "unit", "value": "currencyUSD" } ]
+            },
+            {
+              "matcher": { "id": "byName", "options": "market_cap_usd" },
+               "properties": [ { "id": "unit", "value": "currencyUSD" } ]
+            },
+            {
+                "matcher": { "id": "byName", "options": "volume_24h_usd" },
+                 "properties": [ { "id": "unit", "value": "currencyUSD" } ]
+            }
+          ]
+        }
+      }
+    ],
+    "refresh": "1m"
+  },
+  "overwrite": true
+}
