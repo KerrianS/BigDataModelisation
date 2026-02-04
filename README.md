@@ -1,27 +1,21 @@
-# Big Data Processing Platform
+# Big Data Processing Platform - Crypto Analytics
 
-Ce module vise à fournir une vision complète et opérationnelle d’une chaîne de traitement de données moderne, allant de la génération de données brutes jusqu’à leur exploitation analytique.
+Plateforme simplifiée d'ingestion et d'analyse de données crypto-monnaies avec Airflow, PostgreSQL et Grafana.
 
 ## Architecture
 
-L'architecture repose entièrement sur une stack technique Dockerisée :
-
 ```mermaid
 graph LR
-    P[Producer API] -->|JSON| M[(MongoDB)]
-    M -->|Data Lake| S[Spark Processing]
-    S -->|Micro-batch| DB[(PostgreSQL)]
-    DB -->|Query| V[PgAdmin]
-    M -.->|View| ME[Mongo Express]
-    A[Airflow] -.->|Orchestrate| P
-    A -.->|Orchestrate| S
+    API[CoinCap API] -->|REST| A[Airflow DAG]
+    A -->|Insert| DB[(PostgreSQL)]
+    DB -->|Query| G[Grafana]
+    A -.->|Logs| L[Loki]
+    L -->|Visualize| G
 ```
 
-*   **Ingestion (API -> Mongo)** : Le script `producer` récupère les données CoinCap et les stocke brutes dans **MongoDB** (Data Lake).
-*   **Traitement (Spark)** : Un job Spark lit depuis MongoDB, nettoie les données et les écrit dans **PostgreSQL**.
-*   **Stockage Structuré (PostgreSQL)** : Base de données pour l'analytique.
-*   **Visualisation** : PgAdmin (SQL) et Mongo Express (NoSQL).
-*   **Orchestration (Airflow)** : Supervise le pipeline.
+*   **Ingestion (Airflow)** : DAG Python qui interroge l'API CoinCap toutes les 10 minutes et stocke les données dans PostgreSQL.
+*   **Stockage (PostgreSQL)** : Base de données relationnelle pour les prix crypto.
+*   **Monitoring (Grafana + Loki)** : Visualisation des logs Airflow et métriques.
 
 ## Prérequis
 
@@ -31,34 +25,49 @@ graph LR
 ## Installation et Lancement
 
 1.  Cloner ce dépôt.
-2.  Revoir le fichier `.env` si nécessaire (les configurations par défaut devraient fonctionner).
-3.  Lancer la stack complète :
+2.  Vérifier le fichier `.env` (configurations par défaut fonctionnelles).
+3.  Lancer la stack :
 
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ## Structure du Projet
 
-*   `api/` / `producer/` : Scripts de génération de données (Source).
-*   `spark/` : Scripts de traitement PySpark (Processeur).
+*   `airflow/dags/` : DAGs Airflow (pipeline d'ingestion).
+*   `airflow/logs/` : Logs Airflow.
 *   `postgres/` : Scripts d'initialisation de la base de données.
-*   `airflow/` : DAGs et configuration Airflow.
-*   `docker-compose.yml` : Définition de l'infrastructure.
+*   `monitoring/` : Configuration Promtail et Grafana.
+*   `src/` : Scripts Python personnalisés (si nécessaire).
 
-## Vérification
+## Accès aux Services
 
-*   **Airflow UI** : http://localhost:8081 (admin/admin)
-*   **Mongo Express** : http://localhost:8082 (admin/admin) - *Pour explorer le Data Lake*
-*   **PgAdmin** : http://localhost:5050 (`admin@admin.com` / `admin`)
-    *   *Ajouter le serveur* : Hostname: `postgres`, Username: `admin`, Password: `admin`.
-*   **Spark Master UI** : http://localhost:8080
-*   **Base de données** : Connectez-vous à PostgreSQL sur le port 5432 (user: `admin`, password: `admin`, db: `bigdata_db`).
+*   **Airflow UI** : http://localhost:8080 (airflow/airflow)
+*   **Grafana** : http://localhost:3000 (admin/admin)
+*   **PostgreSQL** : localhost:5433 (airflow/airflow)
+
+## Variables d'Environnement
+
+Toutes les variables sont définies dans `.env` :
+
+*   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` : Credentials PostgreSQL
+*   `AIRFLOW_IMAGE_NAME` : Image Docker Airflow
+*   `COINCAP_API_URL` : URL de l'API CoinCap
+*   `CRYPTO_ASSETS` : Liste des cryptos à suivre (séparées par des virgules)
 
 ## Développement
 
-Pour modifier le traitement Spark, éditez `spark/processor.py` et reconstruisez le conteneur :
+Pour modifier le DAG, éditez `airflow/dags/pipeline_dag.py` et redémarrez le scheduler :
 ```bash
-docker-compose build spark-consumer
-docker-compose up -d spark-consumer
+docker-compose restart airflow-scheduler
 ```
+
+## Visualisation dans Grafana
+
+1.  Accédez à http://localhost:3000
+2.  Ajoutez PostgreSQL comme source de données :
+    *   Host: `postgres:5432`
+    *   Database: `airflow`
+    *   User: `airflow`
+    *   Password: `airflow`
+3.  Créez un dashboard pour visualiser les prix crypto en temps réel.

@@ -1,38 +1,42 @@
-# Rapport de Projet Big Data
+# Rapport de Projet Big Data - Crypto Analytics
 
 ## 1. Problématique Métier
 
-Dans un contexte de croissance exponentielle des données, les entreprises peinent à exploiter efficacement la masse d'informations hétérogènes à leur disposition. 
-Les défis majeurs sont :
-*   **Volumétrie** : Gérer de grandes quantités de données.
-*   **Vitesse** : Ingérer et traiter les données en temps réel.
-*   **Variété** : Intégrer des sources de données diverses.
+Dans un contexte de volatilité extrême des marchés crypto-monnaies, les traders et analystes ont besoin d'outils fiables pour :
+*   **Collecter** des données de prix en temps réel
+*   **Historiser** les données pour analyse de tendances
+*   **Monitorer** la santé du pipeline d'ingestion
 
-Ce projet vise à mettre en place une **plateforme complète de traitement de données** capable de collecter, transformer et stocker des données financières réelles (Crypto-monnaies) pour l'aide à la décision.
+Ce projet propose une **plateforme d'ingestion et d'analyse de données crypto** basée sur des technologies Big Data modernes.
 
 ## 2. Architecture Globale
 
-La plateforme est conçue autour d'une architecture micro-services déployée via Docker, garantissant reproductibilité et isolation.
+L'architecture repose sur une stack simplifiée et moderne :
 
-*   **Ingestion** : Apache Kafka
-*   **Traitement** : Apache Spark (PySpark)
-*   **Stockage** : PostgreSQL
 *   **Orchestration** : Apache Airflow
+*   **Stockage** : PostgreSQL
+*   **Monitoring** : Grafana + Loki + Promtail
 *   **Infrastructure** : Docker & Docker Compose
+
+```mermaid
+graph TD
+    API[CoinCap API] -->|HTTP GET| DAG[Airflow DAG]
+    DAG -->|INSERT| PG[(PostgreSQL)]
+    DAG -.->|Logs| PROM[Promtail]
+    PROM -->|Push| LOKI[Loki]
+    PG -->|Query| GRAF[Grafana]
+    LOKI -->|Logs| GRAF
+```
 
 ## 3. Pipeline de Données
 
-Le flux de données se déroule comme suit :
+Le flux de données est orchestré par Airflow :
 
-1.  **Ingestion (Producer)** : Un script Python interroge l'API **CoinCap** toutes les 10s et récupère les prix du Bitcoin, Ethereum, etc.
-2.  **Tampon (Kafka)** : Les données JSON brutes sont envoyées dans le topic `crypto_stream`.
-3.  **Traitement (Spark Streaming)** : 
-    *   Lecture du flux Kafka.
-    *   Validation du schéma.
-    *   Extraction des champs : Symbol, Name, PriceUSD.
-    *   Écriture continue dans PostgreSQL.
-4.  **Stockage (PostgreSQL)** : Les données sont historisées dans la table `crypto_prices`.
-5.  **Orchestration (Airflow)** : Surveille la disponibilité des services.
+1.  **Déclenchement** : Le DAG `crypto_ingestion_pipeline` s'exécute toutes les 10 minutes.
+2.  **Extraction** : Requête HTTP vers l'API CoinCap pour récupérer les prix de Bitcoin, Ethereum, Solana, etc.
+3.  **Transformation** : Parsing du JSON et extraction des champs pertinents (prix, market cap, volume).
+4.  **Chargement** : Insertion dans PostgreSQL (table `crypto_prices`).
+5.  **Monitoring** : Les logs Airflow sont collectés par Promtail et envoyés à Loki pour visualisation dans Grafana.
 
 ## 4. Modèle de Données
 
@@ -42,22 +46,41 @@ Les données brutes JSON de l'API CoinCap :
     "id": "bitcoin",
     "symbol": "BTC",
     "name": "Bitcoin",
-    "priceUsd": "23456.78",
-    "timestamp": "2024-02-04T12:00:00"
+    "priceUsd": "43256.78",
+    "marketCapUsd": "847123456789.12",
+    "volumeUsd24Hr": "12345678901.23",
+    "changePercent24Hr": "2.45"
 }
 ```
 
-Sont transformées en table `crypto_prices` :
+Sont transformées en table PostgreSQL `crypto_prices` :
 
-| Colonne   | Type             | Description |
-|-----------|------------------|-------------|
-| id        | SERIAL (PK)      | Identifiant technique |
-| symbol    | VARCHAR(20)      | Symbole (BTC, ETH...) |
-| price_usd | DOUBLE PRECISION | Prix en Dollars |
-| timestamp | TIMESTAMP        | Heure de la donnée |
+| Colonne              | Type           | Description                    |
+|----------------------|----------------|--------------------------------|
+| id                   | SERIAL (PK)    | Identifiant technique          |
+| asset_id             | VARCHAR(50)    | ID de l'asset (bitcoin, etc.)  |
+| symbol               | VARCHAR(20)    | Symbole (BTC, ETH...)          |
+| name                 | VARCHAR(50)    | Nom complet                    |
+| price_usd            | NUMERIC(20,8)  | Prix en USD                    |
+| market_cap_usd       | NUMERIC(20,2)  | Capitalisation boursière       |
+| volume_24h_usd       | NUMERIC(20,2)  | Volume 24h                     |
+| change_percent_24h   | NUMERIC(10,4)  | Variation 24h (%)              |
+| ingestion_timestamp  | TIMESTAMP      | Date d'ingestion               |
 
 ## 5. Résultats et Conclusions
 
-Ce projet a permis de démontrer la faisabilité d'une chaîne de traitement Big Data moderne. 
-L'intégration de l'API CoinCap prouve la capacité de la plateforme à ingérer des flux externes en temps réel.
-L'utilisation de **Kafka** assure la résilience, **Spark** la scalabilité et **PgAdmin** la restitution visuelle des données.
+Ce projet démontre la faisabilité d'une **architecture Big Data simplifiée** pour l'ingestion de données financières :
+
+✅ **Avantages** :
+*   Stack légère (pas de Kafka/Spark pour ce cas d'usage)
+*   Orchestration robuste avec Airflow
+*   Monitoring intégré avec Grafana
+*   Facilité de déploiement (Docker Compose)
+
+🔧 **Évolutions possibles** :
+*   Ajout de Spark pour traitement batch complexe
+*   Intégration d'un Data Lake (MongoDB) pour stockage brut
+*   Alerting automatique sur variations de prix
+*   Dashboard Grafana temps réel
+
+L'approche "Infrastructure as Code" avec Docker permet un déploiement rapide et reproductible en environnement de production.

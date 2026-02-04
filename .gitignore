@@ -22,10 +22,10 @@ docker-compose.override.yml
 
 # Project Specific Data/Logs
 postgres-data/
-mongo-data/
+postgres_data/
 airflow/logs/
 airflow/dags/__pycache__/
-spark/checkpoint/
+monitoring/grafana/data/
 
 # OS
 .DS_Store

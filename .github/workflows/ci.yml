@@ -15,10 +15,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
       
+    - name: Create .env file for testing
+      run: |
+        cp .env .env.test || echo "No .env to copy"
+        
     - name: Validate docker-compose config
       run: docker-compose config
       
-    - name: Build custom images
+    - name: Test Airflow DAG syntax
       run: |
-        docker build -t bigdata-producer ./producer
-        docker build -t bigdata-spark ./spark
+        python -m pip install apache-airflow==2.7.2
+        python -m py_compile airflow/dags/*.py
