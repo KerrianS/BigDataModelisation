@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment Variables
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# Docker
+docker-compose.override.yml
+
+# Project Specific Data/Logs
+postgres-data/
+mongo-data/
+airflow/logs/
+airflow/dags/__pycache__/
+spark/checkpoint/
+
+# OS
+.DS_Store
+Thumbs.db
