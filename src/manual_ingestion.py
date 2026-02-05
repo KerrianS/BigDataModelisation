@@ -1,26 +1,6 @@
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from datetime import datetime, timedelta
+from datetime import datetime
 import requests
 import os
-
-default_args = {
-    'owner': 'airflow',
-    'depends_on_past': False,
-    'start_date': datetime(2024, 1, 1),
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-}
-
-dag = DAG(
-    'crypto_ingestion_pipeline',
-    default_args=default_args,
-    description='Fetch crypto data from CoinGecko API and store in MongoDB Data Lake',
-    schedule_interval=timedelta(minutes=3),
-    catchup=False
-)
 
 def fetch_and_store_crypto_data():
     api_url = os.getenv('COINGECKO_API_URL', 'https://api.coingecko.com/api/v3/coins/markets')
@@ -53,7 +33,9 @@ def fetch_and_store_crypto_data():
         mongo_port = 27017
         
         mongo_uri = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:{mongo_port}/"
+        print(f"Connecting to MongoDB at {mongo_host}...")
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+        client.server_info()
         
         db = client["airflow_datalake"]
         collection = db["crypto_raw"]
@@ -67,18 +49,11 @@ def fetch_and_store_crypto_data():
         
         result = collection.insert_one(raw_document)
         print(f"Data stored in MongoDB Data Lake. ID: {result.inserted_id}")
-        print(f"Total documents stored: {len(data)}")
         
         client.close()
         
     except Exception as e:
         print(f"Error in crypto ingestion: {e}")
-        raise e
 
-fetch_crypto_task = PythonOperator(
-    task_id='fetch_and_store_crypto',
-    python_callable=fetch_and_store_crypto_data,
-    dag=dag,
-)
-
-fetch_crypto_task
+if __name__ == "__main__":
+    fetch_and_store_crypto_data()

@@ -8,8 +8,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
     AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES}
 
-    # 🔥 Libs Python pour scraping + Supabase
-    _PIP_ADDITIONAL_REQUIREMENTS: "requests beautifulsoup4 supabase python-dotenv"
+    # 🔥 Libs Python pour scraping + Supabase + MongoDB
+    _PIP_ADDITIONAL_REQUIREMENTS: "requests beautifulsoup4 supabase python-dotenv pymongo"
 
     PYTHONPATH: /opt/airflow/src
 
@@ -53,6 +53,19 @@ services:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
       interval: 5s
       retries: 5
+
+  # =========================
+  # MONGODB (Data Lake)
+  # =========================
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin}
 
   # =========================
   # AIRFLOW
@@ -116,3 +129,4 @@ services:
 
 volumes:
   postgres_data:
+  mongodb_data:
