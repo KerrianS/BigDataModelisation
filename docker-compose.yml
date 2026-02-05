@@ -8,8 +8,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
     AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES}
 
-    # 🔥 Libs Python pour scraping + Supabase + MongoDB
-    _PIP_ADDITIONAL_REQUIREMENTS: "requests beautifulsoup4 supabase python-dotenv pymongo"
+    _PIP_ADDITIONAL_REQUIREMENTS: "requests beautifulsoup4 supabase python-dotenv pymongo kafka-python"
 
     PYTHONPATH: /opt/airflow/src
 
@@ -18,7 +17,6 @@ x-airflow-common: &airflow-common
     DB_USER: ${POSTGRES_USER}
     DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-    # API Configuration
     COINGECKO_API_URL: ${COINGECKO_API_URL}
     CRYPTO_ASSETS: ${CRYPTO_ASSETS}
 
@@ -36,9 +34,6 @@ x-airflow-common: &airflow-common
 
 services:
 
-  # =========================
-  # POSTGRES
-  # =========================
   postgres:
     image: postgres:13
     environment:
@@ -54,9 +49,6 @@ services:
       interval: 5s
       retries: 5
 
-  # =========================
-  # MONGODB (Data Lake)
-  # =========================
   mongo:
     image: mongo:latest
     ports:
@@ -67,13 +59,10 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin}
 
-  # =========================
-  # AIRFLOW
-  # =========================
   airflow-init:
     <<: *airflow-common
     command: >
-      bash -c "airflow db migrate && airflow users create --username airflow --password airflow --firstname Alimou --lastname Santou --role Admin --email alimousantou@gmail.com"
+      bash -c "airflow db migrate && airflow users create --username airflow --password airflow --firstname Admin --lastname User --role Admin --email admin@example.com"
     restart: "no"
 
   airflow-webserver:
@@ -81,28 +70,59 @@ services:
     command: webserver
     ports:
       - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
 
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
 
-  # =========================
-  # LOKI
-  # =========================
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  spark-master:
+    image: apache/spark:4.0.1-python3
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.master.Master
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+
+  spark-worker:
+    image: apache/spark:4.0.1-python3
+    depends_on:
+      - spark-master
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+
   loki:
     image: grafana/loki:2.9.3
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
 
-  # =========================
-  # PROMTAIL
-  # =========================
   promtail:
     image: grafana/promtail:2.9.3
     volumes:
@@ -112,9 +132,6 @@ services:
     depends_on:
       - loki
 
-  # =========================
-  # GRAFANA
-  # =========================
   grafana:
     image: grafana/grafana:10.2.3
     ports:
@@ -124,8 +141,40 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - ./monitoring/grafana/data:/var/lib/grafana
+
+  mongo-to-kafka:
+    image: python:3.11-slim
+    restart: unless-stopped
     depends_on:
-      - loki
+      - mongo
+      - kafka
+    volumes:
+      - ./src:/app
+    working_dir: /app
+    command: >
+      bash -c "sleep 10 && pip install kafka-python pymongo && python mongo_to_kafka.py"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin}
+
+  spark-streaming:
+    image: apache/spark:4.0.1-python3
+    user: "0:0"
+    restart: unless-stopped
+    depends_on:
+      - spark-master
+      - kafka
+      - postgres
+    volumes:
+      - ./src:/app
+    working_dir: /app
+    command: >
+      bash -c "sleep 15 && /opt/spark/bin/spark-submit --master spark://spark-master:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.postgresql:postgresql:42.7.1 spark_kafka_to_postgres.py"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      SPARK_HOME: /opt/spark
 
 volumes:
   postgres_data:
