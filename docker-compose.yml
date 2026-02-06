@@ -10,7 +10,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DEFAULT_TIMEZONE: Europe/Paris
     AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Europe/Paris
 
-    _PIP_ADDITIONAL_REQUIREMENTS: "requests beautifulsoup4 supabase python-dotenv pymongo kafka-python"
+    _PIP_ADDITIONAL_REQUIREMENTS: "requests beautifulsoup4 supabase python-dotenv pymongo kafka-python psycopg2-binary sqlalchemy"
 
     PYTHONPATH: /opt/airflow/src
 
@@ -143,6 +143,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - ./monitoring/grafana/data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
 
   mongo-to-kafka:
     image: python:3.11-slim
