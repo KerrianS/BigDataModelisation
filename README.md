@@ -34,6 +34,8 @@ graph LR
 
 > **Note**: Branch protection is configured on `main` to require all CI checks to pass before merging. See [docs/BRANCH_PROTECTION.md](docs/BRANCH_PROTECTION.md) for setup instructions.
 
+> **Security**: This project uses GitHub Secrets for CI/CD credentials. See [docs/GITHUB_SECRETS.md](docs/GITHUB_SECRETS.md) for configuration instructions.
+
 ## Prerequisites
 
 - Docker
