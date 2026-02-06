@@ -22,6 +22,34 @@ jobs:
           fi
           echo ".env.example file exists"
       
+      
+      - name: Create .env file for validation
+        run: |
+          cat > .env << EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_TABLE=crypto_prices
+          
+          AIRFLOW_IMAGE_NAME=apache/airflow:2.7.2-python3.11
+          AIRFLOW__CORE__EXECUTOR=LocalExecutor
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres/${{ secrets.POSTGRES_DB }}
+          AIRFLOW__CORE__FERNET_KEY=${{ secrets.AIRFLOW_FERNET_KEY }}
+          AIRFLOW__CORE__LOAD_EXAMPLES=False
+          AIRFLOW_UID=50000
+          
+          COINGECKO_API_URL=https://api.coingecko.com/api/v3/coins/markets
+          CRYPTO_ASSETS=bitcoin,ethereum,solana,cardano,ripple
+          
+          MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_USERNAME }}
+          MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+          MONGO_HOST=mongo
+          MONGO_PORT=27017
+          MONGO_DATABASE=airflow_datalake
+          MONGO_COLLECTION=crypto_raw
+          MONGO_URL=mongodb://${{ secrets.MONGO_USERNAME }}:${{ secrets.MONGO_PASSWORD }}@localhost:27017/
+          EOF
+      
       - name: Validate docker-compose.yml syntax
         run: |
           docker compose version
@@ -133,7 +161,30 @@ jobs:
       
       - name: Create .env file for testing
         run: |
-          cp .env.example .env || echo "No .env.example to copy"
+          cat > .env << EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_TABLE=crypto_prices
+          
+          AIRFLOW_IMAGE_NAME=apache/airflow:2.7.2-python3.11
+          AIRFLOW__CORE__EXECUTOR=LocalExecutor
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres/${{ secrets.POSTGRES_DB }}
+          AIRFLOW__CORE__FERNET_KEY=${{ secrets.AIRFLOW_FERNET_KEY }}
+          AIRFLOW__CORE__LOAD_EXAMPLES=False
+          AIRFLOW_UID=50000
+          
+          COINGECKO_API_URL=https://api.coingecko.com/api/v3/coins/markets
+          CRYPTO_ASSETS=bitcoin,ethereum,solana,cardano,ripple
+          
+          MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_USERNAME }}
+          MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+          MONGO_HOST=mongo
+          MONGO_PORT=27017
+          MONGO_DATABASE=airflow_datalake
+          MONGO_COLLECTION=crypto_raw
+          MONGO_URL=mongodb://${{ secrets.MONGO_USERNAME }}:${{ secrets.MONGO_PASSWORD }}@localhost:27017/
+          EOF
       
       - name: Build Docker images
         run: |

@@ -9,6 +9,9 @@
 
 ## 📖 Présentation du Projet
 Ce projet implémente une plateforme **Big Data** de bout en bout pour l'ingestion, le traitement et la visualisation de données de marché en temps réel pour le **top 100 des cryptomonnaies**. 
+> **Security**: This project uses GitHub Secrets for CI/CD credentials. See [docs/GITHUB_SECRETS.md](docs/GITHUB_SECRETS.md) for configuration instructions.
+
+## Prerequisites
 
 L'architecture repose sur un modèle **Lambda/Lakehouse** moderne garantissant :
 - **Persistance** des données brutes (Data Lake - MongoDB).
