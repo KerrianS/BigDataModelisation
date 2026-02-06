@@ -13,14 +13,24 @@ This project implements an ETL (Extract, Transform, Load) pipeline for cryptocur
 ```mermaid
 graph LR
     API[CoinGecko API] -->|REST| A[Airflow DAG]
-    A -->|Insert| DB[(MongoDB Data Lake)]
+    A -->|Insert| MONGO[(MongoDB Data Lake)]
+    MONGO -->|Stream| P[Mongo-to-Kafka Producer]
+    P -->|Publish| K[Kafka Topic]
+    K -->|Consume| S[Spark Streaming]
+    S -->|Transform & Write| PG[(PostgreSQL)]
+    PG -->|Query| G[Grafana Dashboard]
     A -.->|Logs| L[Loki]
-    L -->|Visualize| G[Grafana]
+    L -.->|Visualize| G
 ```
 
+
 - **Ingestion (Airflow)**: Python DAG that queries CoinGecko API every 3 minutes and stores raw data in MongoDB.
-- **Storage (MongoDB)**: NoSQL database serving as a Data Lake for raw cryptocurrency data.
-- **Monitoring (Grafana + Loki)**: Visualization of Airflow logs and metrics.
+- **Data Lake (MongoDB)**: NoSQL database storing raw cryptocurrency data.
+- **Streaming (Kafka)**: Message broker for real-time data streaming from MongoDB.
+- **Processing (Spark)**: Structured Streaming job that consumes from Kafka, transforms data, and writes to PostgreSQL.
+- **Data Warehouse (PostgreSQL)**: Relational database storing structured data for analysis.
+- **Visualization (Grafana)**: Dashboards displaying crypto market metrics and trends.
+- **Monitoring (Loki + Prometheus)**: Centralized logging and metrics collection.
 
 ## Prerequisites
 
