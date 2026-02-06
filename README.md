@@ -1,163 +1,169 @@
-# ETL Pipeline - Crypto Data Lake
+# 🚀 Plateforme Big Data : Pipeline ETL pour Cryptomonnaies
 
 [![Big Data Platform CI/CD](https://github.com/KerrianS/BigDataModelisation/actions/workflows/ci.yml/badge.svg)](https://github.com/KerrianS/BigDataModelisation/actions/workflows/ci.yml)
 
-## Authors: SALAÜN Kerrian & Raphaël DIMECK
+## ✍️ Auteurs
+**SALÄUN Kerrian** & **Raphaël DIMECK** (IMT Nord Europe - Février 2026)
 
-## Project Overview
+---
 
-This project implements an ETL (Extract, Transform, Load) pipeline for cryptocurrency data ingestion using modern Big Data technologies. The system fetches real-time cryptocurrency market data from CoinGecko API and stores it in a MongoDB Data Lake for further analysis.
+## 📖 Présentation du Projet
+Ce projet implémente une plateforme **Big Data** de bout en bout pour l'ingestion, le traitement et la visualisation de données de marché en temps réel pour le **top 100 des cryptomonnaies**. 
 
-## Architecture
+L'architecture repose sur un modèle **Lambda/Lakehouse** moderne garantissant :
+- **Persistance** des données brutes (Data Lake - MongoDB).
+- **Vitesse** du traitement en streaming (Kafka + Spark).
+- **Puissance** des requêtes analytiques (Data Warehouse - PostgreSQL).
+- **Observabilité** totale (Grafana + Prometheus + Loki + Alerting).
+
+---
+
+## 🏗️ Architecture Globale
 
 ```mermaid
-graph LR
-    API[CoinGecko API] -->|REST| A[Airflow DAG]
-    A -->|Insert| MONGO[(MongoDB Data Lake)]
-    MONGO -->|Stream| P[Mongo-to-Kafka Producer]
-    P -->|Publish| K[Kafka Topic]
-    K -->|Consume| S[Spark Streaming]
-    S -->|Transform & Write| PG[(PostgreSQL)]
-    PG -->|Query| G[Grafana Dashboard]
-    A -.->|Logs| L[Loki]
-    L -.->|Visualize| G
+graph TB
+    subgraph "Sources de Données"
+        API[CoinGecko API<br/>REST API]
+    end
+    
+    subgraph "Couche d'Ingestion (Bronze)"
+        AIRFLOW[Airflow Scheduler<br/>Orchestration ETL]
+    end
+    
+    subgraph "Couche de Stockage"
+        MONGO[(MongoDB<br/>Data Lake<br/>Données Brutes)]
+        POSTGRES[(PostgreSQL<br/>Data Warehouse<br/>Données Structurées)]
+    end
+    
+    subgraph "Couche de Traitement (Silver)"
+        KAFKA[Kafka<br/>Message Broker]
+        SPARK[Spark Streaming<br/>Transformation]
+        PRODUCER[Mongo-to-Kafka<br/>CDC / Polling]
+    end
+    
+    subgraph "Visualisation & Alerting"
+        GRAFANA[Grafana<br/>Dashboards & Alerts]
+        ALERTMAN[Alertmanager<br/>Notifications]
+    end
+    
+    subgraph "Monitoring & Observabilité"
+        PROM[Prometheus<br/>Métriques]
+        LOKI[Loki<br/>Logs]
+        PROMTAIL[Promtail<br/>Collecteur de Logs]
+    end
+    
+    API -->|HTTP GET| AIRFLOW
+    AIRFLOW -->|Insert JSON| MONGO
+    MONGO -->|Stream| PRODUCER
+    PRODUCER -->|Publish| KAFKA
+    KAFKA -->|Consume| SPARK
+    SPARK -->|Write JDBC| POSTGRES
+    POSTGRES -->|SQL Query| GRAFANA
+    PROM -.->|Scrape| ALERTMAN
+    ALERTMAN -.->|Notify| GRAFANA
+    AIRFLOW -.->|Logs| PROMTAIL
+    PROMTAIL -.->|Push| LOKI
+    LOKI -.->|Analyze| GRAFANA
+    PROM -.->|Metrics| GRAFANA
 ```
-
-
-- **Ingestion (Airflow)**: Python DAG that queries CoinGecko API every 3 minutes and stores raw data in MongoDB.
-- **Data Lake (MongoDB)**: NoSQL database storing raw cryptocurrency data.
-- **Streaming (Kafka)**: Message broker for real-time data streaming from MongoDB.
-- **Processing (Spark)**: Structured Streaming job that consumes from Kafka, transforms data, and writes to PostgreSQL.
-- **Data Warehouse (PostgreSQL)**: Relational database storing structured data for analysis.
-- **Visualization (Grafana)**: Dashboards displaying crypto market metrics and trends.
-- **Monitoring (Loki + Prometheus)**: Centralized logging and metrics collection.
-
-> **Note**: Branch protection is configured on `main` to require all CI checks to pass before merging. See [docs/BRANCH_PROTECTION.md](docs/BRANCH_PROTECTION.md) for setup instructions.
-
-## Prerequisites
-
-- Docker
-- Docker Compose
-
-## Installation and Launch
-
-1. Clone this repository.
-2. Check the `.env` file (default configurations are functional).
-3. Launch the stack:
-
-```bash
-docker-compose up -d
-```
-
-## Project Structure
-
-- `airflow/dags/`: Airflow DAGs (ingestion pipeline).
-- `airflow/logs/`: Airflow logs.
-- `src/`: Python utility scripts for testing and verification.
-- `monitoring/`: Promtail and Grafana configuration.
-
-## Service Access
-
-- **Airflow UI**: http://localhost:8080 (airflow/airflow)
-- **Grafana**: http://localhost:3000/d/crypto_dashboard/crypto-big-data-dashboard (admin/admin)
-- **MongoDB**: mongodb://admin:admin@localhost:27017/
-
-## Environment Variables
-
-All variables are defined in `.env`:
-
-- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`: PostgreSQL credentials (for Airflow metadata)
-- `AIRFLOW_IMAGE_NAME`: Airflow Docker image
-- `COINGECKO_API_URL`: CoinGecko API URL
-- `CRYPTO_ASSETS`: List of cryptocurrencies to track
-- `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD`: MongoDB credentials
-- `MONGO_DATABASE`: MongoDB database name
-- `MONGO_COLLECTION`: MongoDB collection name
-
-## Development
-
-To modify the DAG, edit `airflow/dags/pipeline_dag.py` and restart the scheduler:
-```bash
-docker-compose restart airflow-scheduler
-```
-
-## MongoDB Data Access
-
-### Via mongosh (command line):
-```bash
-docker exec bigdatamodelisation-mongo-1 mongosh --username admin --password admin --authenticationDatabase admin airflow_datalake
-```
-
-### Via MongoDB Compass (GUI):
-- Connection URI: `mongodb://admin:admin@localhost:27017/`
-
-### Via Python:
-```python
-from pymongo import MongoClient
-client = MongoClient("mongodb://admin:admin@localhost:27017/")
-db = client["airflow_datalake"]
-collection = db["crypto_raw"]
-```
-
-## Utility Scripts
-
-The `src/` directory contains helper scripts:
-
-- `check_datalake.py`: Verify MongoDB data lake contents and display statistics
-- `manual_ingestion.py`: Manually trigger data ingestion for testing
-- `test_mongo.py`: Test MongoDB connection and insert test data
 
 ---
 
-# Architecture & Operations (Technical Details)
+## 🛠️ Stack Technique & Rôles
 
-This project implements a sophisticated **Data Lakehouse** architecture designed for reliability, scalability, and real-time insights. It bridges the gap between raw unstructured data (Data Lake) and high-performance structured analytics (Data Warehouse).
-
-## 1. Deep Dive: The Data Journey
-
-The pipeline is organized into four distinct logical layers, ensuring separation of concerns and system resilience.
-
-### A. Ingestion Layer (The "Bronze" Stage)
-*   **Mechanism:** An **Apache Airflow** DAG (`crypto_ingestion_pipeline`) acts as the primary orchestrator. Every 3 minutes, it triggers a Python function that performs a secure REST API call to **CoinGecko**.
-*   **Data Capture:** It fetches the **Top 100 cryptocurrencies** by market cap, capturing a comprehensive JSON payload (prices, volumes, ATH, RSI indicators, etc.).
-*   **Persistent Archiving:** The raw, unmodified JSON is timestamped and stored in **MongoDB**. This "Bronze" layer ensures that if our processing logic needs to change in the future, we can re-process historical data from its original source format.
-
-### B. Brokerage & Decoupling Layer
-*   **The Bridge:** A dedicated service (`mongo-to-kafka`) implements a **Change Data Capture (CDC)** pattern. It monitors the MongoDB collection for new document insertions using an incremental ID tracking strategy.
-*   **Event Streaming:** New records are published to an **Apache Kafka** cluster (topic: `crypto-raw`). By introducing Kafka, we decouple the "Slow Ingestion" (API calls) from "Fast Processing" (Spark), allowing the system to handle spikes in data volume and providing a buffer for downstream consumers.
-
-### C. Processing Layer (The "Silver" Stage)
-*   **Compute Engine:** **Apache Spark** (via Structured Streaming) consumes the Kafka topic. Spark's distributed nature allows it to scale horizontally as data volume grows.
-*   **Transformation Logic:**
-    *   **Schema Enforcement:** Spark parses the semi-structured JSON using a predefined `StructType` schema. 
-    *   **Normalization:** The nested `raw_data` array (containing 100 assets) is "exploded" into individual rows. 
-    *   **Data Cleaning:** Data types are cast (e.g., String to Float for prices), and redundant fields are filtered out.
-*   **The "Silver" Warehouse:** The resulting structured, clean data is streamed into **PostgreSQL** using a JDBC sink, creating a high-performance relational table (`crypto_prices`) ready for SQL queries.
-
-### D. Visualization & Observability Layer
-*   **Analytics:** **Grafana** is configured with a PostgreSQL datasource. It executes optimized SQL queries to render real-time candlestick charts, volatility heatmaps, and trend lines.
-*   **Full-Stack Monitoring:** 
-    *   **Logs:** System-wide logs are scraped by **Promtail**, indexed by **Loki**, and searchable directly within Grafana.
-    *   **Metrics:** **Prometheus** tracks container health (CPU/RAM) and service uptime.
+| Composant | Technologie | Rôle Technique |
+| :--- | :--- | :--- |
+| **Orchestrateur** | **Airflow** | Planification des tâches (DAGs) et appels API CoinGecko toutes les 3 min. |
+| **Data Lake** | **MongoDB** | Stockage immuable des documents JSON bruts originaux. |
+| **Bus d'Événements** | **Kafka** | Découplage des services et buffer de streaming haute performance. |
+| **Moteur SQL** | **Spark** | Transformation complexe, nettoyage et typage des données en micro-batches. |
+| **Warehouse** | **PostgreSQL** | Stockage structuré et indexé pour la visualisation rapide. |
+| **Observabilité** | **Prometheus** | Collecte des métriques système (CPU, RAM, Uptime). |
+| **Gestion Logs** | **Loki + Promtail** | Centralisation et indexation de tous les logs containers. |
+| **Visualisation** | **Grafana** | Dashboards temps réel et gestionnaire centralisé d'alertes. |
+| **Alerting** | **Alertmanager** | Groupement et routage des alertes vers les terminaux finaux. |
 
 ---
 
-## 2. Technical Stack & Component Roles
+## 🚨 Système d'Alerting (Nouveau)
 
-| Component | Technology | Technical Responsibility | Why this choice? |
-| :--- | :--- | :--- | :--- |
-| **Orchestrator** | **Airflow** | DAG scheduling, task retries, and API flow control. | Industry standard for complex, fault-tolerant workflows. |
-| **NoSQL Lake** | **MongoDB** | Schema-less storage of original JSON documents. | Handles evolving API responses without breaking the pipeline. |
-| **Streaming** | **Kafka** | High-throughput, distributed message brokerage. | Decouples services and provides a 7-day data retention buffer. |
-| **Big Data Engine**| **Spark** | Distributed micro-batch processing & heavy transformations. | Fastest engine for structured streaming and complex ETL. |
-| **Warehouse** | **Postgres** | Relational storage with indexing for analytical queries. | ACID compliance and excellent integration with BI tools. |
-| **Observability** | **Grafana Stack** | Centralized dashboard for Data (SQL) and Infrastructure (Logs). | One-stop-shop for monitoring the entire ecosystem. |
+La plateforme intègre désormais un système d'alertes à deux niveaux :
+
+### 1. Alertes d'Infrastructure (via Prometheus & Alertmanager)
+- **ServiceDown** : Déclenché si un container (Airflow, Spark, Kafka) ne répond plus pendant plus d'une minute.
+- **IngestionLagging** : Détecte si le job Airflow n'est plus visible par le système de monitoring.
+
+### 2. Alertes Métier & Pipeline (via Grafana Unified Alerting)
+- **Bitcoin Price Crash** : Alerte critique déclenchée si le cours du Bitcoin varie de plus de **-10%** sur 24h.
+- **Ingestion Pipeline Stalled** : Alerte de sécurité activée si aucune nouvelle donnée n'est insérée dans PostgreSQL pendant plus de **10 minutes** (signe d'un blocage Spark ou Kafka).
 
 ---
 
-## 3. System Resilience Features
+## 📋 Prérequis & Installation
 
-*   **Internal Networking:** All components communicate within a dedicated **Docker bridge network**. Communication with databases is secured via internal DNS (e.g., `postgres:5432` instead of public IPs).
-*   **Environment Isolation:** Credentials and API endpoints are never hardcoded; they are injected via a `.env` file, facilitating easy deployment across Dev, Staging, and Production.
-*   **Auto-Healing:** Docker Compose is configured with `restart: unless-stopped` for critical ingestion services, ensuring the pipeline recovers automatically after container failures or system reboots.
-*   **Storage Persistency:** **Docker Volumes** (`postgres_data`, `mongodb_data`, `grafana_data`) ensure that historical data and dashboard configurations survive container restarts and updates.
+### Prérequis
+- **Docker** & **Docker Compose** installés.
+- Au moins **8 Go de RAM** alloués à Docker pour supporter Spark et Kafka simultanément.
+
+### Lancement Rapide
+1. **Configurer l'environnement** :
+   ```bash
+   cp .env.example .env
+   # Modifier les credentials si nécessaire
+   ```
+2. **Démarrer la stack** :
+   ```bash
+   docker-compose up -d
+   ```
+3. **Vérifier l'état** :
+   ```bash
+   docker-compose ps
+   ```
+
+---
+
+## 🔗 Accès aux Services
+
+| Service | URL | Identifiants |
+| :--- | :--- | :--- |
+| **Airflow UI** | [http://localhost:8080](http://localhost:8080) | `airflow` / `airflow` |
+| **Grafana** | [http://localhost:3000](http://localhost:3000) | `admin` / `admin` |
+| **Prometheus** | [http://localhost:9090](http://localhost:9090) | - |
+| **Alertmanager** | [http://localhost:9093](http://localhost:9093) | - |
+| **Spark Master** | [http://localhost:8081](http://localhost:8081) | - |
+
+---
+
+## 🧪 Maintenance & Tests
+
+### Scripts Utilitaires (`/src`)
+- `check_datalake.py` : Compare les données dans MongoDB et Postgres.
+- `manual_ingestion.py` : Force un appel API immédiat sans attendre le scheduler Airflow.
+- `test_mongo.py` : Vérifie la connectivité au Data Lake.
+
+### Commandes Utiles
+```bash
+# Redémarrer uniquement le pipeline de traitement
+docker-compose restart spark-streaming
+
+# Consulter les logs d'ingestion
+docker-compose logs -f airflow-scheduler
+
+# Simuler un crash pour tester les alertes
+docker-compose stop spark-worker
+```
+
+### Accès direct aux bases de données
+- **Postgres** : `docker exec -it bigdatamodelisation-postgres-1 psql -U airflow -d airflow`
+- **MongoDB** : `docker exec -it bigdatamodelisation-mongo-1 mongosh --username admin --password admin`
+
+---
+
+## 🔮 Roadmap & Améliorations Futures
+- [ ] **Data Quality** : Ajout de Great Expectations pour valider les données en sortie de Spark.
+- [ ] **Diversification** : Intégration de l'API Binance et Coinbase pour comparer les prix.
+- [ ] **IA** : Implémentation d'un modèle de prédiction via Spark MLlib.
+- [ ] **Déploiement** : Migration de l'architecture vers Kubernetes (K8s) avec Helm Charts.
+
+---
+**Note sur la sécurité** : Toutes les communications entre composants se font via le réseau Docker sécurisé interne. Pour une exposition publique, l'utilisation d'un Reverse Proxy (Nginx/Traefik) avec HTTPS est impérative.
