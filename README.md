@@ -32,6 +32,8 @@ graph LR
 - **Visualization (Grafana)**: Dashboards displaying crypto market metrics and trends.
 - **Monitoring (Loki + Prometheus)**: Centralized logging and metrics collection.
 
+> **Note**: Branch protection is configured on `main` to require all CI checks to pass before merging. See [docs/BRANCH_PROTECTION.md](docs/BRANCH_PROTECTION.md) for setup instructions.
+
 ## Prerequisites
 
 - Docker
