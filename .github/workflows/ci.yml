@@ -1,4 +1,4 @@
-name: Big Data Platform CI
+name: Big Data Platform CI/CD
 
 on:
   push:
@@ -7,22 +7,173 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build:
+  validate-config:
+    name: Validate Configuration
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
       
-    - name: Create .env file for testing
-      run: |
-        cp .env .env.test || echo "No .env to copy"
-        
-    - name: Validate docker-compose config
-      run: docker-compose config
+      - name: Validate .env.example exists
+        run: |
+          if [ ! -f .env.example ]; then
+            echo ".env.example file not found"
+            exit 1
+          fi
+          echo ".env.example file exists"
       
-    - name: Test Airflow DAG syntax
-      run: |
-        python -m pip install apache-airflow==2.7.2
-        python -m py_compile airflow/dags/*.py
+      - name: Validate docker-compose.yml syntax
+        run: |
+          docker compose version
+          docker compose config > /dev/null
+          echo "docker-compose.yml is valid"
+
+  validate-code:
+    name: Validate Python Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install apache-airflow==2.7.2 pyspark==3.5.0 pymongo kafka-python requests
+      
+      - name: Validate Airflow DAGs syntax
+        run: |
+          echo "Validating Airflow DAGs..."
+          python -m py_compile airflow/dags/*.py
+          echo "All Airflow DAGs are valid"
+      
+      - name: Validate Spark scripts syntax
+        run: |
+          echo "Validating Spark scripts..."
+          if [ -d "spark" ] && [ "$(ls -A spark/*.py 2>/dev/null)" ]; then
+            python -m py_compile spark/*.py
+            echo "All Spark scripts are valid"
+          else
+            echo "No Spark scripts found in spark/ directory"
+          fi
+      
+      - name: Validate utility scripts syntax
+        run: |
+          echo "Validating utility scripts..."
+          python -m py_compile src/*.py
+          echo "All utility scripts are valid"
+      
+      - name: Validate producer scripts syntax
+        run: |
+          echo "Validating producer scripts..."
+          if [ -d "producer" ] && [ "$(ls -A producer/*.py 2>/dev/null)" ]; then
+            python -m py_compile producer/*.py
+            echo "All producer scripts are valid"
+          else
+            echo "No producer scripts found in producer/ directory"
+          fi
+
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Check README.md exists
+        run: |
+          if [ ! -f README.md ]; then
+            echo "README.md file not found"
+            exit 1
+          fi
+          echo "README.md exists"
+      
+      - name: Check RAPPORT.md exists
+        run: |
+          if [ ! -f RAPPORT.md ]; then
+            echo "RAPPORT.md file not found (recommended for final deliverable)"
+          else
+            echo "RAPPORT.md exists"
+          fi
+      
+      - name: Validate markdown syntax
+        uses: articulate/actions-markdownlint@v1
+        with:
+          files: '*.md'
+          ignore: node_modules
+        continue-on-error: true
+
+  validate-sql:
+    name: Validate SQL Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Check SQL scripts exist
+        run: |
+          if [ -d "postgres" ] && [ "$(ls -A postgres/*.sql 2>/dev/null)" ]; then
+            echo "SQL scripts found in postgres/ directory"
+            ls -lh postgres/*.sql
+          else
+            echo "No SQL scripts found in postgres/ directory"
+          fi
+
+  integration-test:
+    name: Integration Test (Docker Compose)
+    runs-on: ubuntu-latest
+    needs: [validate-config, validate-code]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Create .env file for testing
+        run: |
+          cp .env.example .env || echo "No .env.example to copy"
+      
+      - name: Build Docker images
+        run: |
+          echo "Building Docker images..."
+          docker compose build --no-cache
+          echo "Docker images built successfully"
+      
+      - name: Start services (health check)
+        run: |
+          echo "Starting services..."
+          docker compose up -d postgres mongo kafka
+          echo "Waiting for services to be healthy..."
+          sleep 30
+          docker compose ps
+      
+      - name: Verify services are running
+        run: |
+          echo "Checking service health..."
+          docker compose ps | grep -E "(postgres|mongo|kafka)" | grep -v "Exit"
+          echo "Core services are running"
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Cleaning up..."
+          docker compose down -v
+          echo "Cleanup complete"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'

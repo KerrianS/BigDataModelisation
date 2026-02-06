@@ -1,5 +1,7 @@
 # ETL Pipeline - Crypto Data Lake
 
+[![Big Data Platform CI/CD](https://github.com/KerrianS/BigDataModelisation/actions/workflows/ci.yml/badge.svg)](https://github.com/KerrianS/BigDataModelisation/actions/workflows/ci.yml)
+
 **Authors:** SALAÜN Kerrian & Raphaël DIMECK
 
 ## Project Overview
