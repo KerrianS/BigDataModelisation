@@ -1,0 +1,24 @@
+groups:
+  - name: health_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} est injoignable"
+          description: "Le service {{ $labels.job }} ({{ $labels.instance }}) est tombé depuis plus d'une minute."
+
+  - name: ingestion_alerts
+    rules:
+      - alert: IngestionLagging
+        # Exemple : Alerte si on n'a plus de nouvelles données dans Postgres
+        # (Nécessite postgres_exporter ou une query spécifique, on va rester sur du simple pour l'instant)
+        expr: absent(up{job="airflow"})
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Problème d'ingestion Airflow"
+          description: "Le job Airflow n'est plus détecté par Prometheus."

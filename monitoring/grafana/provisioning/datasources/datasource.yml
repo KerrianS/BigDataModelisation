@@ -12,3 +12,5 @@ datasources:
       postgresVersion: 1300
       timescaledb: false
     isDefault: true
+    uid: postgres-ds
+

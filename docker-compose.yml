@@ -118,6 +118,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules
 
   loki:
     image: grafana/loki:2.9.3
@@ -133,6 +134,16 @@ services:
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./monitoring/alertmanager/config.yml:/etc/alertmanager/config.yml
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
 
   grafana:
     image: grafana/grafana:10.2.3

@@ -1,0 +1,84 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: 'Crypto Alerts'
+    folder: 'Market Monitoring'
+    interval: 1m
+    rules:
+      - uid: 'btc-crash-alert'
+        title: 'Bitcoin Price Crash'
+        condition: 'B'
+        data:
+          - refId: 'A'
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: 'postgres-ds'
+            model:
+              refId: 'A'
+              hide: false
+              rawSql: "SELECT change_percent_24h FROM crypto_prices WHERE asset_id = 'bitcoin' ORDER BY ingestion_timestamp DESC LIMIT 1"
+              format: 'table'
+          - refId: 'B'
+            datasourceUid: '__expr__'
+            model:
+              refId: 'B'
+              hide: false
+              type: 'threshold'
+              expression: 'A'
+              conditions:
+                - type: 'query'
+                  evaluator:
+                    params: [-10]
+                    type: 'lt'
+                  operator:
+                    type: 'and'
+                  query:
+                    params: ['A']
+        noDataState: 'OK'
+        execErrState: 'Alerting'
+        for: '1m'
+        annotations:
+          summary: "Chute brutale du Bitcoin"
+          description: "La variation sur 24h du Bitcoin est passée sous la barre des -10%."
+        labels:
+          severity: 'critical'
+
+      - uid: 'ingestion-stalled'
+        title: 'Ingestion Pipeline Stalled'
+        condition: 'B'
+        data:
+          - refId: 'A'
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: 'postgres-ds'
+            model:
+              refId: 'A'
+              hide: false
+              rawSql: "SELECT COUNT(*) FROM crypto_prices WHERE ingestion_timestamp > NOW() - INTERVAL '10 minutes'"
+              format: 'table'
+          - refId: 'B'
+            datasourceUid: '__expr__'
+            model:
+              refId: 'B'
+              hide: false
+              type: 'threshold'
+              expression: 'A'
+              conditions:
+                - type: 'query'
+                  evaluator:
+                    params: [1]
+                    type: 'lt'
+                  operator:
+                    type: 'and'
+                  query:
+                    params: ['A']
+        noDataState: 'Alerting'
+        execErrState: 'Alerting'
+        for: '5m'
+        annotations:
+          summary: "Pipeline bloqué"
+          description: "Aucune nouvelle donnée n'a été insérée dans PostgreSQL depuis plus de 10 minutes."
+        labels:
+          severity: 'critical'
